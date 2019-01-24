@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 """
 读取数据
 """
-def build_input(data_path, batch_size,num_class,reszie,mode='train'):
+def build_input(data_path, batch_size,num_class,resize,dtype='int'):
     #读取一个文件夹下匹配的文件
     files = tf.train.match_filenames_once(data_path)
     #把文件放入文件队列中
@@ -36,10 +36,6 @@ def build_input(data_path, batch_size,num_class,reszie,mode='train'):
 
 
 
-
-   
-
-
     ###tf.image.decode_jpeg#############
     image_raw = tf.image.decode_jpeg(image, channels=3)
     retyped_height = tf.cast(height, tf.int32)
@@ -47,8 +43,14 @@ def build_input(data_path, batch_size,num_class,reszie,mode='train'):
     retyped_channel = tf.cast(channel,tf.int32)
     labels = tf.cast(label,tf.int32)
     # image_resize = tf.image.resize_images(image_raw,[32,32],method=np.random.randint(4))
-    image_resize=tf.image.resize_image_with_crop_or_pad(image_raw, reszie, reszie)
-    images,labels= tf.train.shuffle_batch([image_resize,labels ],batch_size=batch_size,capacity=capacity,min_after_dequeue=500)
+    if dtype == 'float':
+        distorted_image = preprocess_for_train(image_raw, resize, resize, None)
+        # 组合样例两种方法一种是tf.train.batch;另一种是tf.train.shuffle_batch，输入的shape一定要明确
+        images, labels = tf.train.shuffle_batch([distorted_image, labels], batch_size=batch_size,
+                                                            capacity=capacity, min_after_dequeue=500)
+    else:
+        image_resize=tf.image.resize_image_with_crop_or_pad(image_raw, resize, resize)
+        images,labels= tf.train.shuffle_batch([image_resize,labels ],batch_size=batch_size,capacity=capacity,min_after_dequeue=500)
     labels = tf.reshape(labels, [batch_size, 1])
     indices = tf.reshape(tf.range(0, batch_size, 1), [batch_size, 1])
     labels = tf.sparse_to_dense(
@@ -59,14 +61,15 @@ def build_input(data_path, batch_size,num_class,reszie,mode='train'):
 
 
 
-data_path ='./data/train-*'
-example_batch, label_batch=build_input(data_path, batch_size=32, num_class=4,reszie=128)
 
-def show(image):
-    plt.imshow(image)
-    plt.show()
 
 if __name__ == '__main__':
+    data_path = './data/train-*'
+    example_batch, label_batch = build_input(data_path, batch_size=32, num_class=4, resize=128,dtype='float')
+    def show(image):
+        plt.imshow(image)
+        plt.show()
+
     with tf.Session() as sess:
         init_op = tf.group(tf.global_variables_initializer(),tf.local_variables_initializer())
         sess.run(init_op)
